@@ -193,27 +193,38 @@ function speak(t){
   try{ss.speak(u)}catch(e){toast('음성 재생 실패')}
   setTimeout(()=>{if(!started&&UTT===u)toast(speechSynthesis.getVoices().length&&!pickVoice()?'기기에 영어 음성이 없어요. 휴대폰 설정 > 텍스트 음성 변환(TTS)에서 영어를 설치해 주세요':'소리가 안 나요? 무음(진동) 모드 해제와 미디어 볼륨을 확인해 주세요')},2500);
 }
+let RECID=0,RECOWNER=null,RECDOG=null;
+function stopRec(){
+  RECID++;clearTimeout(RECDOG);
+  if(REC){const r=REC;REC=null;r.onresult=r.onerror=r.onend=r.onaudiostart=null;try{r.abort()}catch(e){}}
+  if(RECOWNER){const o=RECOWNER;RECOWNER=null;o.onEnd&&o.onEnd()}
+}
 function startRec(o){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){o.onError('unsupported');return}
-  if(REC){try{REC.stop()}catch(e){}return}
+  stopRec();
   try{if(window.speechSynthesis&&(speechSynthesis.speaking||speechSynthesis.pending))speechSynthesis.cancel()}catch(e){}
   let r;try{r=new SR()}catch(e){o.onError('unsupported');return}
-  REC=r;r.lang='en-US';r.interimResults=true;r.continuous=false;
+  const id=++RECID;REC=r;RECOWNER=o;r.lang='en-US';r.interimResults=true;r.continuous=false;
   try{r.maxAlternatives=3}catch(e){}
-  let done=false,lastInterim='',errored=false;
-  const finish=best=>{if(done)return;done=true;o.onDone(best)};
-  r.onresult=e=>{let interim='',fin=null;
+  let done=false,lastInterim='';
+  const live=()=>id===RECID;
+  const end=()=>{if(!live())return;clearTimeout(RECDOG);REC=null;RECOWNER=null;try{r.abort()}catch(e){}o.onEnd&&o.onEnd()};
+  const finish=best=>{if(done||!live())return;done=true;o.onDone(best);end()};
+  const dog=ms=>{clearTimeout(RECDOG);RECDOG=setTimeout(()=>{if(!live())return;if(lastInterim.trim())finish(lastInterim.trim());else{end();o.onError('timeout')}},ms)};
+  r.onaudiostart=()=>{if(live()&&o.onListen)o.onListen()};
+  r.onresult=e=>{if(!live())return;let interim='',fin=null;
     for(let i=e.resultIndex;i<e.results.length;i++){const res=e.results[i];if(res.isFinal)fin=res;else interim+=res[0].transcript}
-    if(interim){lastInterim=interim;o.onInterim&&o.onInterim(interim)}
+    if(interim){lastInterim=interim;o.onInterim&&o.onInterim(interim);dog(2500)}
     if(fin){const alts=Array.from(fin).map(a=>(a.transcript||'').trim()).filter(Boolean);if(!alts.length)return;let best=alts[0];
       if(o.target)best=alts.map(a=>[a,sim(a,o.target).score]).sort((x,y)=>y[1]-x[1])[0][0];finish(best)}};
-  r.onerror=e=>{errored=true;if(e.error==='aborted'&&lastInterim)return;if(!(e.error==='no-speech'&&lastInterim))o.onError(e.error)};
-  r.onend=()=>{REC=null;if(!done&&lastInterim.trim())finish(lastInterim.trim());else if(!done&&!errored)o.onError('no-speech');o.onEnd&&o.onEnd()};
-  try{r.start()}catch(e){REC=null;o.onError('start')}
+  r.onerror=e=>{if(!live())return;if(lastInterim.trim()){finish(lastInterim.trim());return}end();if(e.error!=='aborted')o.onError(e.error)};
+  r.onend=()=>{if(!live())return;if(!done&&lastInterim.trim())finish(lastInterim.trim());else{const wasDone=done;end();if(!wasDone)o.onError('no-speech')}};
+  dog(8000);
+  try{r.start()}catch(e){end();o.onError('start')}
 }
 const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
-function recErr(e){REC=null;
+function recErr(e){
   const m={
     unsupported:isIOS?'이 화면에서는 음성인식이 안 돼요. 홈 화면 아이콘 대신 Safari에서 직접 열어 주세요':'이 브라우저는 음성인식을 지원하지 않아요 (Chrome 권장)',
     'not-allowed':isIOS?'마이크·음성인식 권한이 꺼져 있어요. 설정 > 앱 > Safari > 마이크를 "허용"으로 바꿔 주세요':'마이크 권한을 허용해 주세요 (주소창 왼쪽 자물쇠 아이콘)',
@@ -223,7 +234,8 @@ function recErr(e){REC=null;
     network:'인터넷 연결을 확인해 주세요 (음성인식은 인터넷이 필요해요)',
     aborted:'음성인식이 중단됐어요. 다시 눌러 주세요',
     'language-not-supported':'기기에서 영어 음성인식을 지원하지 않아요. 키보드 설정에 영어(미국)를 추가해 주세요',
-    start:'음성인식을 시작하지 못했어요. 잠시 뒤 다시 눌러 주세요'};
+    start:'음성인식을 시작하지 못했어요. 잠시 뒤 다시 눌러 주세요',
+    timeout:'목소리가 인식되지 않았어요. 🎤를 다시 누르고 "듣는 중" 표시가 뜬 뒤 말해 주세요'};
   toast(m[e]||('음성인식 오류: '+e));
 }
 
@@ -388,7 +400,7 @@ function summaryHtml(){
 function finishCard(skip){
   const c=P.cards[P.i],v=Object.values(P.scores);let score=null;
   if(!skip&&v.length){score=v.reduce((a,b)=>a+b,0)/v.length;const p=DB.progress[c.id]||{n:0,best:0};DB.progress[c.id]={n:p.n+1,last:score,best:Math.max(p.best||0,score)};save()}
-  P.results.push({c,score});P.i++;speechSynthesis&&speechSynthesis.cancel();render();window.scrollTo(0,0);
+  stopRec();P.results.push({c,score});P.i++;window.speechSynthesis&&speechSynthesis.cancel();render();window.scrollTo(0,0);
 }
 function showResult(k,heard){
   const text=P.targets[k],r=sim(heard,text);P.scores[k]=r.score;
@@ -433,14 +445,14 @@ const acts={
   say(el){speak(P.targets[+el.dataset.k])},
   mic(el){
     const k=+el.dataset.k,btn=el;
-    if(REC){try{REC.stop()}catch(e){}return}
-    setMic(btn,true);
-    startRec({target:P.targets[k],onInterim:t=>{$('#h'+k).textContent='… '+t},onDone:t=>{$('#h'+k).textContent='“'+t+'”';showResult(k,t)},onError:e=>{setMic(btn,false);recErr(e)},onEnd:()=>setMic(btn,false)});
+    if(REC&&btn.classList.contains('rec')){stopRec();return}
+    setMic(btn,true);$('#h'+k).textContent='마이크 켜는 중…';
+    startRec({target:P.targets[k],onListen:()=>{$('#h'+k).textContent='🎙 듣는 중… 말해 보세요'},onInterim:t=>{$('#h'+k).textContent='… '+t},onDone:t=>{$('#h'+k).textContent='“'+t+'”';showResult(k,t)},onError:e=>{setMic(btn,false);recErr(e)},onEnd:()=>setMic(btn,false)});
   },
   smic(el){
-    if(REC){try{REC.stop()}catch(e){}return}
-    const ans=$('#ans'),c=P.cards[P.i];setMic(el,true);
-    startRec({target:c.better,onInterim:t=>{ans.value=t},onDone:t=>{ans.value=t},onError:e=>{setMic(el,false);recErr(e)},onEnd:()=>setMic(el,false)});
+    if(REC&&el.classList.contains('rec')){stopRec();return}
+    const ans=$('#ans'),c=P.cards[P.i];setMic(el,true);ans.placeholder='마이크 켜는 중…';
+    startRec({target:c.better,onListen:()=>{ans.placeholder='🎙 듣는 중… 말해 보세요'},onInterim:t=>{ans.value=t},onDone:t=>{ans.value=t},onError:e=>{setMic(el,false);recErr(e)},onEnd:()=>setMic(el,false)});
   },
   async scheck(){
     const c=P.cards[P.i],u=$('#ans').value.trim();if(!u)return toast('먼저 말하거나 입력해 주세요');
@@ -454,7 +466,7 @@ const acts={
   },
   sayb(){speak(P.cards[P.i].better)},
   next(){finishCard(false)},skip(){finishCard(true)},
-  quit(){P=null;if(REC){try{REC.stop()}catch(e){}}render()},
+  quit(){stopRec();P=null;render()},
   retry(){const w=P.results.filter(r=>r.score!=null&&r.score<.8).map(r=>r.c);startPractice(w,P.title)},
   testvoice(){const v=window.speechSynthesis&&pickVoice();speak('Hello! This is how I will read your sentences.');if(v)setTimeout(()=>toast('사용 음성: '+v.name),300)},
   exp(){$('#bk').value=bk();toast('아래 칸에 백업이 만들어졌어요')},
