@@ -153,6 +153,8 @@ const verdict=s=>s>=.9?'🎉 완벽해요':s>=.7?'👍 거의 맞아요':'🔁 �
 // </PURE>
 
 /* ---------- storage ---------- */
+const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const kbMode=()=>{const m=DB.settings.voice||'auto';return m==='kb'||(m==='auto'&&isIOS)};
 function load(){try{const d=JSON.parse(localStorage.getItem('pe_v1'));if(d&&d.lessons){d.settings=Object.assign({key:'',model:'claude-haiku-5-5',rate:.9},d.settings);d.progress=d.progress||{};return d}}catch(e){}
   return{lessons:{},progress:{},settings:{key:'',model:'claude-haiku-5-5',rate:.9}}}
 let DB=load();
@@ -222,7 +224,6 @@ function startRec(o){
   dog(8000);
   try{r.start()}catch(e){end();o.onError('start')}
 }
-const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
 function recErr(e){
   const m={
     unsupported:isIOS?'이 화면에서는 음성인식이 안 돼요. 홈 화면 아이콘 대신 Safari에서 직접 열어 주세요':'이 브라우저는 음성인식을 지원하지 않아요 (Chrome 권장)',
@@ -345,6 +346,9 @@ function setHtml(){
   <div class="lbl">API 키</div><input type="password" id="skey" value="${esc(s.key)}" placeholder="sk-ant-..." autocomplete="off">
   <div class="lbl">모델</div><input type="text" id="smodel" value="${esc(s.model)}">
   </div>
+  <div class="card"><h2>말하기 방식</h2>
+  <select id="svoice"><option value="auto" ${(s.voice||'auto')==='auto'?'selected':''}>자동 (아이폰은 키보드 받아쓰기)</option><option value="kb" ${s.voice==='kb'?'selected':''}>키보드 받아쓰기</option><option value="mic" ${s.voice==='mic'?'selected':''}>앱 마이크 버튼 (안드로이드·PC 권장)</option></select>
+  <div class="sub" style="margin-top:6px">아이폰은 앱 마이크 버튼이 첫 번째 이후 작동하지 않는 문제가 있어서, 키보드의 🎤 받아쓰기를 써요.</div></div>
   <div class="card"><h2>음성</h2><div class="lbl">듣기 속도 <span id="rv2">${s.rate}</span>x</div>
   <input type="range" id="srate" min="0.6" max="1.2" step="0.05" value="${s.rate}" style="width:100%">
   <div class="row" style="margin-top:8px"><button data-act="testvoice">🔊 테스트</button></div></div>
@@ -360,8 +364,8 @@ const typeName={pron:'🔊 발음',vocab:'💡 어휘',sent:'🛠 작문'};
 function blk(text,label){
   P.targets.push(text);const k=P.targets.length-1;
   return`<div class="blk"><div class="lbl">${esc(label)}</div><div class="tgt">${esc(text)}</div>
-  <div class="row"><button data-act="say" data-k="${k}">🔊 듣기</button><button class="mic" data-act="mic" data-k="${k}" id="m${k}">🎤 말하기</button></div>
-  <div class="row" style="margin-top:8px;flex-wrap:nowrap"><input type="text" class="kb" id="t${k}" data-k="${k}" placeholder="⌨️ 또는 여기를 누르고 키보드 🎤로 말하기" enterkeyhint="done" autocapitalize="off" style="flex:1;min-width:0;width:auto;font-size:15px"><button data-act="tcheck" data-k="${k}">채점</button></div>
+  <div class="row"><button data-act="say" data-k="${k}">🔊 듣기</button>${kbMode()?'':`<button class="mic" data-act="mic" data-k="${k}" id="m${k}">🎤 말하기</button>`}</div>
+  <div class="row" style="margin-top:8px;flex-wrap:nowrap"><input type="text" class="kb" id="t${k}" data-k="${k}" placeholder="${kbMode()?'눌러서 키보드 🎤로 말하기':'⌨️ 또는 여기를 누르고 키보드 🎤로 말하기'}" enterkeyhint="done" autocapitalize="off" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;width:auto;font-size:16px"><button data-act="tcheck" data-k="${k}">채점</button></div>
   <div class="heard" id="h${k}"></div><div class="res" id="r${k}"></div></div>`;
 }
 function practiceHtml(){
@@ -380,12 +384,13 @@ function practiceHtml(){
     b=`<span class="chip">작문</span><div class="lbl">다음 뜻을 영어로 말해보세요</div>
     ${c.ko?`<div class="ko">${esc(c.ko)}</div>`:`<div class="fb">한국어 문장이 아직 없어요. 수업 시트의 “AI 예문·번역 생성”을 먼저 눌러 주세요.<br>지금은 예전 실수 문장을 올바르게 고쳐서 말해보세요:<br><b>${esc(c.wrong)}</b></div>`}
     ${c.ko&&c.wrong?`<details class="sub"><summary>수업 때 했던 말 보기</summary>${esc(c.wrong)}</details>`:''}
-    <div class="row" style="margin:10px 0"><button class="mic" data-act="smic" id="sm">🎤 말하기</button></div>
-    <textarea id="ans" style="min-height:70px" placeholder="🎤로 말하거나, 여기를 누르고 키보드 🎤로 말해도 돼요"></textarea>
+    ${kbMode()?'<div style="margin-top:10px"></div>':'<div class="row" style="margin:10px 0"><button class="mic" data-act="smic" id="sm">🎤 말하기</button></div>'}
+    <textarea id="ans" style="min-height:70px" placeholder="${kbMode()?'여기를 누르고 키보드의 🎤로 말하세요':'🎤로 말하거나, 여기를 누르고 키보드 🎤로 말해도 돼요'}"></textarea>
     <button class="pri big" style="margin-top:8px" data-act="scheck">확인</button><div id="sres"></div>`;
   }
+  const tip=kbMode()&&!DB.settings.kbTipSeen?`<div class="card" style="background:var(--pri2)"><b>🎤 말하는 방법</b><div class="sub" style="margin-top:4px">입력칸을 누르면 키보드가 올라와요 → 키보드 오른쪽 아래 <b>🎤</b>를 누르고 말하기 → 키보드 <b>완료</b>를 누르면 채점돼요.<br>키보드에 🎤가 없으면 설정 > 일반 > 키보드 > "받아쓰기 활성화"를 켜 주세요.</div><button style="margin-top:8px" data-act="kbtip">알겠어요</button></div>`:'';
   return`<div class="top"><button class="ghost" data-act="quit">✕</button><div class="bar"><i style="width:${P.i/P.cards.length*100}%"></i></div><span class="sub">${P.i+1}/${P.cards.length}</span></div>
-  <div class="card">${b}</div>
+  ${tip}<div class="card">${b}</div>
   <div class="row"><button class="grow ghost" data-act="skip">건너뛰기</button><button class="grow pri" data-act="next">다음 ›</button></div>`;
 }
 function cardLabel(c){return c.type==='pron'?c.word:c.type==='vocab'?c.v.word:c.better}
@@ -443,6 +448,7 @@ const acts={
     if(DB.settings.key)doEnrich(L.date);else toast('저장했어요! (AI 예문·번역은 설정에서 API 키 입력 후 생성)');
   },
   say(el){speak(P.targets[+el.dataset.k])},
+  kbtip(){DB.settings.kbTipSeen=1;save();render()},
   tcheck(el){const k=+el.dataset.k,v=$('#t'+k).value.trim();if(!v)return toast('먼저 말하거나 입력해 주세요');$('#h'+k).textContent='“'+v+'”';showResult(k,v)},
   mic(el){
     const k=+el.dataset.k,btn=el;
@@ -492,6 +498,7 @@ document.addEventListener('input',e=>{
   else if(id==='pdate'){e.target.dataset.touched='1';S.addDate=e.target.value}
   else if(id==='skey'){DB.settings.key=e.target.value.trim();save()}
   else if(id==='smodel'){DB.settings.model=e.target.value.trim()||'claude-haiku-5-5';save()}
+  else if(id==='svoice'){DB.settings.voice=e.target.value;save()}
   else if(id==='srate'){DB.settings.rate=+e.target.value;$('#rv2').textContent=e.target.value;save()}
 });
 if('speechSynthesis' in window)speechSynthesis.getVoices();
