@@ -190,25 +190,42 @@ function speak(t){
   const v=pickVoice();if(v)u.voice=v;
   let started=false;u.onstart=()=>{started=true};
   u.onerror=e=>{if(!/interrupted|canceled/.test(e.error))toast('음성 재생 오류: '+e.error)};
-  setTimeout(()=>{try{ss.speak(u)}catch(e){toast('음성 재생 실패')}},80);
+  try{ss.speak(u)}catch(e){toast('음성 재생 실패')}
   setTimeout(()=>{if(!started&&UTT===u)toast(speechSynthesis.getVoices().length&&!pickVoice()?'기기에 영어 음성이 없어요. 휴대폰 설정 > 텍스트 음성 변환(TTS)에서 영어를 설치해 주세요':'소리가 안 나요? 무음(진동) 모드 해제와 미디어 볼륨을 확인해 주세요')},2500);
 }
 function startRec(o){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){o.onError('unsupported');return}
   if(REC){try{REC.stop()}catch(e){}return}
-  const r=new SR();REC=r;r.lang='en-US';r.interimResults=true;r.maxAlternatives=5;
+  try{if(window.speechSynthesis&&(speechSynthesis.speaking||speechSynthesis.pending))speechSynthesis.cancel()}catch(e){}
+  let r;try{r=new SR()}catch(e){o.onError('unsupported');return}
+  REC=r;r.lang='en-US';r.interimResults=true;r.continuous=false;
+  try{r.maxAlternatives=3}catch(e){}
+  let done=false,lastInterim='',errored=false;
+  const finish=best=>{if(done)return;done=true;o.onDone(best)};
   r.onresult=e=>{let interim='',fin=null;
     for(let i=e.resultIndex;i<e.results.length;i++){const res=e.results[i];if(res.isFinal)fin=res;else interim+=res[0].transcript}
-    if(interim&&o.onInterim)o.onInterim(interim);
-    if(fin){const alts=Array.from(fin).map(a=>a.transcript.trim());let best=alts[0];
-      if(o.target)best=alts.map(a=>[a,sim(a,o.target).score]).sort((x,y)=>y[1]-x[1])[0][0];o.onDone(best)}};
-  r.onerror=e=>o.onError(e.error);r.onend=()=>{REC=null;o.onEnd&&o.onEnd()};
+    if(interim){lastInterim=interim;o.onInterim&&o.onInterim(interim)}
+    if(fin){const alts=Array.from(fin).map(a=>(a.transcript||'').trim()).filter(Boolean);if(!alts.length)return;let best=alts[0];
+      if(o.target)best=alts.map(a=>[a,sim(a,o.target).score]).sort((x,y)=>y[1]-x[1])[0][0];finish(best)}};
+  r.onerror=e=>{errored=true;if(e.error==='aborted'&&lastInterim)return;if(!(e.error==='no-speech'&&lastInterim))o.onError(e.error)};
+  r.onend=()=>{REC=null;if(!done&&lastInterim.trim())finish(lastInterim.trim());else if(!done&&!errored)o.onError('no-speech');o.onEnd&&o.onEnd()};
   try{r.start()}catch(e){REC=null;o.onError('start')}
 }
+const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
 function recErr(e){REC=null;
-  toast(e==='unsupported'?'이 브라우저는 음성인식을 지원하지 않아요 (Android Chrome / iOS Safari 권장)':
-    e==='not-allowed'||e==='service-not-allowed'?'마이크 권한을 허용해 주세요':e==='no-speech'?'음성이 들리지 않았어요. 다시 해볼까요?':'음성인식 오류: '+e)}
+  const m={
+    unsupported:isIOS?'이 화면에서는 음성인식이 안 돼요. 홈 화면 아이콘 대신 Safari에서 직접 열어 주세요':'이 브라우저는 음성인식을 지원하지 않아요 (Chrome 권장)',
+    'not-allowed':isIOS?'마이크·음성인식 권한이 꺼져 있어요. 설정 > 앱 > Safari > 마이크를 "허용"으로 바꿔 주세요':'마이크 권한을 허용해 주세요 (주소창 왼쪽 자물쇠 아이콘)',
+    'service-not-allowed':isIOS?'음성인식이 꺼져 있어요. 설정 > 일반 > 키보드 > "받아쓰기 활성화"를 켜 주세요 (홈 화면 아이콘으로 열었다면 Safari에서 열어 주세요)':'음성인식 서비스를 쓸 수 없어요. 브라우저를 Chrome으로 바꿔 보세요',
+    'no-speech':'음성이 들리지 않았어요. 버튼을 누르고 바로 말해 보세요',
+    'audio-capture':'마이크를 찾을 수 없어요. 다른 앱이 마이크를 쓰고 있는지 확인해 주세요',
+    network:'인터넷 연결을 확인해 주세요 (음성인식은 인터넷이 필요해요)',
+    aborted:'음성인식이 중단됐어요. 다시 눌러 주세요',
+    'language-not-supported':'기기에서 영어 음성인식을 지원하지 않아요. 키보드 설정에 영어(미국)를 추가해 주세요',
+    start:'음성인식을 시작하지 못했어요. 잠시 뒤 다시 눌러 주세요'};
+  toast(m[e]||('음성인식 오류: '+e));
+}
 
 /* ---------- AI (optional, user's own API key) ---------- */
 async function claude(prompt,max){
@@ -258,16 +275,15 @@ function calHtml(){
   let g=['일','월','화','수','목','금','토'].map(w=>`<div class="wd">${w}</div>`).join('');
   for(let i=0;i<first.getDay();i++)g+='<div></div>';
   for(let d=1;d<=days;d++){const k=iso(S.y,S.m,d),L=DB.lessons[k];
-    g+=`<button class="d ${L?'has':''} ${k===t?'today':''}" data-act="day" data-d="${k}">${d}${L?`<small>${GEN.has(k)?'⏳':L.ai?'✨':L.aiErr?'⚠️':''}${cardsFor(k,['pron','vocab','sent']).length}문제</small>`:''}</button>`}
+    g+=`<button class="d ${L?'has':''} ${k===t?'today':''}" data-act="day" data-d="${k}">${d}${L?`<small>${cardsFor(k,['pron','vocab','sent']).length}문제</small>`:''}</button>`}
   const n=poolCount();
   return`<h1>☀ 전화영어 복습</h1>
   <button class="pri big" data-act="rand" ${n?'':'disabled'}>🎲 전체 랜덤 복습 <span style="font-weight:400">(${n}문제)</span></button>
-  ${[...GEN].map(d=>`<div class="card gen" style="margin-top:12px"><span class="spin"></span>${esc(d)} 수업의 예문·번역을 AI가 만드는 중… (보통 10~30초)</div>`).join('')}
   <div class="card" style="margin-top:12px">
     <div class="calh"><button data-act="mon" data-n="-1">‹</button><b>${S.y}년 ${S.m+1}월</b><button data-act="mon" data-n="1">›</button></div>
     <div class="grid">${g}</div>
   </div>
-  ${n?'<div class="sub" style="text-align:center">✨ AI 생성 완료 · ⏳ 생성 중 · ⚠️ 생성 실패</div>':'<div class="card sub">아직 수업이 없어요. 아래 <b>➕ 수업 추가</b>에서 카톡 내용을 붙여넣어 보세요.</div>'}`;
+  ${n?'':'<div class="card sub">아직 수업이 없어요. 아래 <b>➕ 수업 추가</b>에서 카톡 내용을 붙여넣어 보세요.</div>'}`;
 }
 function sheetHtml(){
   const sh=S.sheet;
@@ -385,8 +401,8 @@ const GEN=new Set();
 async function doEnrich(date){
   if(GEN.has(date))return;
   GEN.add(date);if(!P)render();
-  try{await enrich(date);toast('✨ '+date+' 예문·번역 생성 완료!')}
-  catch(e){if(DB.lessons[date]){DB.lessons[date].aiErr=e.message;save()}toast('생성 실패: '+e.message)}
+  try{await enrich(date)}
+  catch(e){if(DB.lessons[date]){DB.lessons[date].aiErr=e.message;save()}}
   GEN.delete(date);if(!P)render();
 }
 const acts={
