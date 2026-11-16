@@ -193,23 +193,22 @@ function speak(t){
   try{ss.speak(u)}catch(e){toast('음성 재생 실패')}
   setTimeout(()=>{if(!started&&UTT===u)toast(speechSynthesis.getVoices().length&&!pickVoice()?'기기에 영어 음성이 없어요. 휴대폰 설정 > 텍스트 음성 변환(TTS)에서 영어를 설치해 주세요':'소리가 안 나요? 무음(진동) 모드 해제와 미디어 볼륨을 확인해 주세요')},2500);
 }
-let RECID=0,RECOWNER=null,RECDOG=null;
+let RECID=0,RECOWNER=null,RECDOG=null;const RECKEEP=[];
 function stopRec(){
   RECID++;clearTimeout(RECDOG);
-  if(REC){const r=REC;REC=null;r.onresult=r.onerror=r.onend=r.onaudiostart=null;try{r.abort()}catch(e){}}
+  if(REC){const r=REC;REC=null;r.onresult=r.onerror=r.onaudiostart=null;r.onend=null;try{r.stop()}catch(e){}}
   if(RECOWNER){const o=RECOWNER;RECOWNER=null;o.onEnd&&o.onEnd()}
 }
 function startRec(o){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){o.onError('unsupported');return}
   stopRec();
-  try{if(window.speechSynthesis&&(speechSynthesis.speaking||speechSynthesis.pending))speechSynthesis.cancel()}catch(e){}
   let r;try{r=new SR()}catch(e){o.onError('unsupported');return}
-  const id=++RECID;REC=r;RECOWNER=o;r.lang='en-US';r.interimResults=true;r.continuous=false;
+  const id=++RECID;REC=r;RECKEEP.push(r);if(RECKEEP.length>5)RECKEEP.shift();RECOWNER=o;r.lang='en-US';r.interimResults=true;r.continuous=false;
   try{r.maxAlternatives=3}catch(e){}
   let done=false,lastInterim='';
   const live=()=>id===RECID;
-  const end=()=>{if(!live())return;clearTimeout(RECDOG);REC=null;RECOWNER=null;try{r.abort()}catch(e){}o.onEnd&&o.onEnd()};
+  const end=()=>{if(!live())return;clearTimeout(RECDOG);REC=null;RECOWNER=null;try{r.stop()}catch(e){}o.onEnd&&o.onEnd()};
   const finish=best=>{if(done||!live())return;done=true;o.onDone(best);end()};
   const dog=ms=>{clearTimeout(RECDOG);RECDOG=setTimeout(()=>{if(!live())return;if(lastInterim.trim())finish(lastInterim.trim());else{end();o.onError('timeout')}},ms)};
   r.onaudiostart=()=>{if(live()&&o.onListen)o.onListen()};
@@ -235,7 +234,7 @@ function recErr(e){
     aborted:'음성인식이 중단됐어요. 다시 눌러 주세요',
     'language-not-supported':'기기에서 영어 음성인식을 지원하지 않아요. 키보드 설정에 영어(미국)를 추가해 주세요',
     start:'음성인식을 시작하지 못했어요. 잠시 뒤 다시 눌러 주세요',
-    timeout:'목소리가 인식되지 않았어요. 🎤를 다시 누르고 "듣는 중" 표시가 뜬 뒤 말해 주세요'};
+    timeout:isIOS?'목소리가 인식되지 않았어요. 아래 ⌨️ 칸을 누르고 키보드의 🎤 버튼으로 말해 보세요':'목소리가 인식되지 않았어요. 다시 눌러 주세요'};
   toast(m[e]||('음성인식 오류: '+e));
 }
 
@@ -362,6 +361,7 @@ function blk(text,label){
   P.targets.push(text);const k=P.targets.length-1;
   return`<div class="blk"><div class="lbl">${esc(label)}</div><div class="tgt">${esc(text)}</div>
   <div class="row"><button data-act="say" data-k="${k}">🔊 듣기</button><button class="mic" data-act="mic" data-k="${k}" id="m${k}">🎤 말하기</button></div>
+  <div class="row" style="margin-top:8px;flex-wrap:nowrap"><input type="text" class="kb" id="t${k}" data-k="${k}" placeholder="⌨️ 또는 여기를 누르고 키보드 🎤로 말하기" enterkeyhint="done" autocapitalize="off" style="flex:1;min-width:0;width:auto;font-size:15px"><button data-act="tcheck" data-k="${k}">채점</button></div>
   <div class="heard" id="h${k}"></div><div class="res" id="r${k}"></div></div>`;
 }
 function practiceHtml(){
@@ -381,7 +381,7 @@ function practiceHtml(){
     ${c.ko?`<div class="ko">${esc(c.ko)}</div>`:`<div class="fb">한국어 문장이 아직 없어요. 수업 시트의 “AI 예문·번역 생성”을 먼저 눌러 주세요.<br>지금은 예전 실수 문장을 올바르게 고쳐서 말해보세요:<br><b>${esc(c.wrong)}</b></div>`}
     ${c.ko&&c.wrong?`<details class="sub"><summary>수업 때 했던 말 보기</summary>${esc(c.wrong)}</details>`:''}
     <div class="row" style="margin:10px 0"><button class="mic" data-act="smic" id="sm">🎤 말하기</button></div>
-    <textarea id="ans" style="min-height:70px" placeholder="말하면 여기에 인식돼요. 직접 입력/수정도 가능해요."></textarea>
+    <textarea id="ans" style="min-height:70px" placeholder="🎤로 말하거나, 여기를 누르고 키보드 🎤로 말해도 돼요"></textarea>
     <button class="pri big" style="margin-top:8px" data-act="scheck">확인</button><div id="sres"></div>`;
   }
   return`<div class="top"><button class="ghost" data-act="quit">✕</button><div class="bar"><i style="width:${P.i/P.cards.length*100}%"></i></div><span class="sub">${P.i+1}/${P.cards.length}</span></div>
@@ -443,6 +443,7 @@ const acts={
     if(DB.settings.key)doEnrich(L.date);else toast('저장했어요! (AI 예문·번역은 설정에서 API 키 입력 후 생성)');
   },
   say(el){speak(P.targets[+el.dataset.k])},
+  tcheck(el){const k=+el.dataset.k,v=$('#t'+k).value.trim();if(!v)return toast('먼저 말하거나 입력해 주세요');$('#h'+k).textContent='“'+v+'”';showResult(k,v)},
   mic(el){
     const k=+el.dataset.k,btn=el;
     if(REC&&btn.classList.contains('rec')){stopRec();return}
@@ -484,6 +485,7 @@ document.addEventListener('click',e=>{
   if(el.dataset.act==='closeSheet'&&e.target!==el)return;
   const f=acts[el.dataset.act];if(f)f(el,e);
 });
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList&&e.target.classList.contains('kb')){e.preventDefault();e.target.blur();acts.tcheck(e.target)}});
 document.addEventListener('input',e=>{
   const id=e.target.id;
   if(id==='paste')updatePreview();
