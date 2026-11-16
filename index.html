@@ -54,6 +54,8 @@ textarea{min-height:150px;resize:vertical}
 .li:last-child{border:0}
 label.chk{display:flex;gap:8px;align-items:center;padding:6px 0}
 label.chk input{width:20px;height:20px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:rot .8s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes rot{to{transform:rotate(360deg)}}
+.gen{background:var(--pri2);color:var(--pri);font-weight:600}.st{border-radius:12px;padding:10px 12px;margin-top:10px;font-size:14px}.st.ok2{background:var(--okbg);color:var(--ok)}.st.err{background:var(--missbg);color:var(--miss)}
 </style>
 </head>
 <body>
@@ -176,10 +178,20 @@ const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(M
 
 /* ---------- speech ---------- */
 let REC=null;
+let UTT=null;
+function pickVoice(){const vs=speechSynthesis.getVoices();
+  return vs.find(v=>/^en[-_]US/i.test(v.lang)&&/Google|Samantha|Natural|Premium|Enhanced/i.test(v.name))||vs.find(v=>/^en[-_]US/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null}
 function speak(t){
-  if(!('speechSynthesis' in window)){toast('이 브라우저는 음성 재생을 지원하지 않아요');return}
-  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='en-US';
-  const v=speechSynthesis.getVoices().find(v=>/en[-_]US/i.test(v.lang));if(v)u.voice=v;u.rate=DB.settings.rate;speechSynthesis.speak(u);
+  const ss=window.speechSynthesis;
+  if(!ss){toast('이 브라우저는 음성 재생을 지원하지 않아요');return}
+  if(ss.speaking||ss.pending)ss.cancel();
+  try{ss.resume()}catch(e){}
+  const u=new SpeechSynthesisUtterance(t);UTT=u;u.lang='en-US';u.volume=1;u.rate=DB.settings.rate;
+  const v=pickVoice();if(v)u.voice=v;
+  let started=false;u.onstart=()=>{started=true};
+  u.onerror=e=>{if(!/interrupted|canceled/.test(e.error))toast('음성 재생 오류: '+e.error)};
+  setTimeout(()=>{try{ss.speak(u)}catch(e){toast('음성 재생 실패')}},80);
+  setTimeout(()=>{if(!started&&UTT===u)toast(speechSynthesis.getVoices().length&&!pickVoice()?'기기에 영어 음성이 없어요. 휴대폰 설정 > 텍스트 음성 변환(TTS)에서 영어를 설치해 주세요':'소리가 안 나요? 무음(진동) 모드 해제와 미디어 볼륨을 확인해 주세요')},2500);
 }
 function startRec(o){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -217,7 +229,7 @@ Rules:
 - "vocab": for each input.vocab word, TWO different natural example sentences (8-14 words) using the word in the given part of speech.
 Input: ${JSON.stringify(payload)}`,3000);
   const m=txt.match(/\{[\s\S]*\}/);if(!m)throw new Error('AI 응답을 해석하지 못했어요');
-  const ai=JSON.parse(m[0]);if(!Array.isArray(ai.ko))ai.ko=[];L.ai=ai;save();
+  const ai=JSON.parse(m[0]);if(!Array.isArray(ai.ko))ai.ko=[];L.ai=ai;L.aiAt=Date.now();delete L.aiErr;save();
 }
 async function aiFeedback(ko,better,user){
   return claude(`한국인 영어 학습자가 전화영어 복습 중입니다.
@@ -246,15 +258,16 @@ function calHtml(){
   let g=['일','월','화','수','목','금','토'].map(w=>`<div class="wd">${w}</div>`).join('');
   for(let i=0;i<first.getDay();i++)g+='<div></div>';
   for(let d=1;d<=days;d++){const k=iso(S.y,S.m,d),L=DB.lessons[k];
-    g+=`<button class="d ${L?'has':''} ${k===t?'today':''}" data-act="day" data-d="${k}">${d}${L?`<small>${cardsFor(k,['pron','vocab','sent']).length}문제</small>`:''}</button>`}
+    g+=`<button class="d ${L?'has':''} ${k===t?'today':''}" data-act="day" data-d="${k}">${d}${L?`<small>${GEN.has(k)?'⏳':L.ai?'✨':L.aiErr?'⚠️':''}${cardsFor(k,['pron','vocab','sent']).length}문제</small>`:''}</button>`}
   const n=poolCount();
   return`<h1>☀ 전화영어 복습</h1>
   <button class="pri big" data-act="rand" ${n?'':'disabled'}>🎲 전체 랜덤 복습 <span style="font-weight:400">(${n}문제)</span></button>
+  ${[...GEN].map(d=>`<div class="card gen" style="margin-top:12px"><span class="spin"></span>${esc(d)} 수업의 예문·번역을 AI가 만드는 중… (보통 10~30초)</div>`).join('')}
   <div class="card" style="margin-top:12px">
     <div class="calh"><button data-act="mon" data-n="-1">‹</button><b>${S.y}년 ${S.m+1}월</b><button data-act="mon" data-n="1">›</button></div>
     <div class="grid">${g}</div>
   </div>
-  ${n?'':'<div class="card sub">아직 수업이 없어요. 아래 <b>➕ 수업 추가</b>에서 카톡 내용을 붙여넣어 보세요.</div>'}`;
+  ${n?'<div class="sub" style="text-align:center">✨ AI 생성 완료 · ⏳ 생성 중 · ⚠️ 생성 실패</div>':'<div class="card sub">아직 수업이 없어요. 아래 <b>➕ 수업 추가</b>에서 카톡 내용을 붙여넣어 보세요.</div>'}`;
 }
 function sheetHtml(){
   const sh=S.sheet;
@@ -266,10 +279,13 @@ function sheetHtml(){
     <div class="row" style="margin:12px 0"><span class="chip">발음 ${c('pron')}</span><span class="chip">어휘 ${c('vocab')}</span><span class="chip">작문 ${c('sent')}</span></div>
     <button class="pri big" data-act="study" data-t="all">▶ 전체 복습</button>
     <div class="row" style="margin-top:8px"><button class="grow" data-act="study" data-t="pron">🔊 발음</button><button class="grow" data-act="study" data-t="vocab">💡 어휘</button><button class="grow" data-act="study" data-t="sent">🛠 작문</button></div>
+    ${GEN.has(sh.date)?'<div class="st gen"><span class="spin"></span>AI가 예문·번역을 만드는 중이에요… 끝나면 자동으로 바뀌어요</div>'
+      :hasAI?`<div class="st ok2">✅ AI 예문·번역 생성 완료${L.aiAt?' · '+new Date(L.aiAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}</div>`
+      :L.aiErr?`<div class="st err">⚠️ 생성 실패: ${esc(L.aiErr)}</div>`
+      :'<div class="st sub" style="background:var(--bg)">아직 AI 생성 전이에요. 한국어 문장·발음 예문이 비어 있어요.</div>'}
     <div class="row" style="margin-top:8px">
-      <button class="grow" data-act="enrich">${hasAI?'🔄 AI 예문·번역 다시 생성':'✨ AI 예문·번역 생성'}</button>
+      <button class="grow" data-act="enrich" ${GEN.has(sh.date)?'disabled':''}>${GEN.has(sh.date)?'<span class="spin"></span>생성 중…':hasAI?'🔄 다시 생성':L.aiErr?'🔁 다시 시도':'✨ AI 예문·번역 생성'}</button>
       <button class="grow" data-act="del" style="color:var(--miss)">🗑 삭제</button></div>
-    ${hasAI?'':'<div class="sub" style="margin-top:6px">AI 생성 전에는 한국어 문장·발음 예문이 비어 있어요 (설정에서 API 키 입력 필요).</div>'}
     </div></div>`}
   return`<div class="sheetbg" data-act="closeSheet"><div class="sheet" data-stop="1">
     <h2>🎲 전체 랜덤 복습</h2>
@@ -365,10 +381,13 @@ function showResult(k,heard){
 function setMic(btn,on){btn.classList.toggle('rec',on);btn.textContent=on?'⏹ 멈추기':'🎤 말하기'}
 
 /* ---------- actions ---------- */
+const GEN=new Set();
 async function doEnrich(date){
-  toast('AI가 예문·번역을 만드는 중…');
-  try{await enrich(date);toast('생성 완료!')}catch(e){toast(e.message)}
-  render();
+  if(GEN.has(date))return;
+  GEN.add(date);if(!P)render();
+  try{await enrich(date);toast('✨ '+date+' 예문·번역 생성 완료!')}
+  catch(e){if(DB.lessons[date]){DB.lessons[date].aiErr=e.message;save()}toast('생성 실패: '+e.message)}
+  GEN.delete(date);if(!P)render();
 }
 const acts={
   tab(el){S.view=el.dataset.v;S.sheet=null;render();window.scrollTo(0,0)},
@@ -421,7 +440,7 @@ const acts={
   next(){finishCard(false)},skip(){finishCard(true)},
   quit(){P=null;if(REC){try{REC.stop()}catch(e){}}render()},
   retry(){const w=P.results.filter(r=>r.score!=null&&r.score<.8).map(r=>r.c);startPractice(w,P.title)},
-  testvoice(){speak('Hello! This is how I will read your sentences.')},
+  testvoice(){const v=window.speechSynthesis&&pickVoice();speak('Hello! This is how I will read your sentences.');if(v)setTimeout(()=>toast('사용 음성: '+v.name),300)},
   exp(){$('#bk').value=bk();toast('아래 칸에 백업이 만들어졌어요')},
   async copybk(){const t=$('#bk').value;if(!t)return toast('먼저 “백업 만들기”를 누르세요');try{await navigator.clipboard.writeText(t);toast('복사했어요')}catch(e){$('#bk').select();toast('길게 눌러 복사하세요')}},
   dl(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bk()],{type:'application/json'}));a.download='phone-english-backup-'+iso(now0.getFullYear(),now0.getMonth(),now0.getDate())+'.json';document.body.appendChild(a);a.click();a.remove()},
