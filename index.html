@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#4f46e5">
+<title>전화영어 복습</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--tx:#1f2430;--sub:#6b7280;--pri:#4f46e5;--pri2:#eef0ff;--ok:#15803d;--okbg:#dcfce7;--miss:#b91c1c;--missbg:#fee2e2;--extra:#b45309;--extrabg:#fef3c7;--line:#e5e7eb}
+@media(prefers-color-scheme:dark){:root{--bg:#12141a;--card:#1c1f28;--tx:#eceef4;--sub:#9aa1b2;--pri:#818cf8;--pri2:#262a42;--ok:#86efac;--okbg:#14391f;--miss:#fca5a5;--missbg:#451a1a;--extra:#fcd34d;--extrabg:#44331a;--line:#2b2f3b}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",Roboto,sans-serif;padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+#app{max-width:560px;margin:0 auto;padding:16px 14px}
+h1{font-size:20px;margin:4px 0 12px}h2{font-size:17px;margin:0 0 8px}
+.card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.sub{color:var(--sub);font-size:13px}
+button{font:inherit;border:0;border-radius:12px;padding:11px 14px;background:var(--pri2);color:var(--pri);font-weight:600;cursor:pointer}
+button.pri{background:var(--pri);color:#fff}button.big{width:100%;padding:15px;font-size:17px}
+button.ghost{background:transparent;color:var(--sub)}button:disabled{opacity:.5}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>.grow{flex:1}
+.nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.nav button{flex:1;border-radius:0;background:transparent;color:var(--sub);padding:12px 4px;font-size:13px}
+.nav button.on{color:var(--pri)}
+.calh{display:flex;justify-content:space-between;align-items:center;margin:6px 0}
+.calh b{font-size:17px}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.grid .wd{font-size:12px;color:var(--sub);padding:4px 0}
+.d{aspect-ratio:1;border-radius:12px;background:transparent;color:var(--tx);padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:500;position:relative}
+.d.has{background:var(--pri2);color:var(--pri);font-weight:700}
+.d.today{outline:2px solid var(--pri)}
+.d small{font-size:10px;color:var(--sub);font-weight:400;line-height:1}
+.d.has small{color:var(--pri)}
+.sheetbg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet{background:var(--card);width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:85vh;overflow:auto}
+.chip{display:inline-block;background:var(--pri2);color:var(--pri);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;margin-right:4px}
+textarea,input[type=text],input[type=password],input[type=date],select{width:100%;font:inherit;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--tx)}
+textarea{min-height:150px;resize:vertical}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.bar{flex:1;height:8px;background:var(--line);border-radius:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--pri)}
+.word{font-size:30px;font-weight:800;margin:2px 0}.ipa{color:var(--sub);font-size:16px}
+.blk{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px}
+.tgt{font-size:18px;font-weight:600;margin-bottom:8px}
+.ko{font-size:21px;font-weight:700;line-height:1.45;margin:6px 0 12px}
+.mic.rec{background:#dc2626;color:#fff;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.6}}
+.heard{margin-top:8px;color:var(--sub);font-style:italic;min-height:1px}
+.res{margin-top:8px}.sc{font-weight:800}
+.ok{color:var(--ok)}.miss{color:var(--miss);background:var(--missbg);border-radius:4px;padding:0 3px}
+.extra{color:var(--extra);background:var(--extrabg);text-decoration:line-through;border-radius:4px;padding:0 3px}
+.lbl{font-size:12px;color:var(--sub);margin:8px 0 2px}
+.fb{background:var(--pri2);border-radius:12px;padding:10px 12px;margin-top:8px;white-space:pre-wrap}
+.toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#111;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;z-index:50;max-width:90%}
+.li{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.li:last-child{border:0}
+label.chk{display:flex;gap:8px;align-items:center;padding:6px 0}
+label.chk input{width:20px;height:20px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+'use strict';
+// <PURE>
+const MON=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+const iso=(y,m,d)=>`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function parseDate(raw,now=new Date()){
+  const head=raw.split('\n').slice(0,6).join('\n');
+  const mm=head.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(\d{4}))?/i);
+  if(!mm)return iso(now.getFullYear(),now.getMonth(),now.getDate());
+  const m=MON.indexOf(mm[1].toLowerCase()),d=+mm[2];let y=mm[3]?+mm[3]:now.getFullYear();
+  if(!mm[3]&&new Date(y,m,d)-now>3*864e5)y--;
+  return iso(y,m,d);
+}
+
+function parseLesson(raw,now){
+  const lines=raw.replace(/\r/g,'').split('\n').map(l=>l.trim());
+  const L={date:parseDate(raw,now),course:'',book:'',title:'',pron:[],vocab:[],sentences:[],homework:'',next:'',raw:raw.trim()};
+  let sec='',cur=null,grp=null,wrong=null;
+  for(const line of lines){
+    if(!line)continue;
+    if(/Today'?s Lesson/i.test(line)){sec='lesson';continue}
+    if(/Pronunciation Practice/i.test(line)){sec='pron';continue}
+    if(/Vocabular/i.test(line)&&!/^Example/i.test(line)){sec='vocab';cur=null;grp=null;continue}
+    if(/Sentence Construction/i.test(line)){sec='sent';continue}
+    if(/Homework\s*:/i.test(line)){sec='hw';L.homework=line.replace(/^.*Homework\s*:\s*/i,'');continue}
+    if(/Next Lesson/i.test(line)){sec='next';continue}
+    if(sec==='lesson'||sec==='next'){
+      let m;
+      if(sec==='lesson'){
+        if((m=line.match(/^Course\s*:\s*(.*)/i)))L.course=m[1];
+        else if((m=line.match(/^Book\/?Website\s*:\s*(.*)/i)))L.book=m[1];
+        else if((m=line.match(/^Title\/?page\s*:\s*(.*)/i)))L.title=m[1];
+      }else{L.next+=(L.next?' · ':'')+line.replace(/^(Course|Book\/Website|Title\/page)\s*:\s*/i,'')}
+    }else if(sec==='pron'){
+      const m=line.match(/^(.+?)\s*\[(.+?)\]\s*$/);
+      if(m)L.pron.push({word:m[1].trim(),ipa:m[2].trim()});
+    }else if(sec==='vocab'){
+      let m;
+      if((m=line.match(/^Example\s*:\s*(.*)/i))){if(cur)cur.example=m[1];continue}
+      if((m=line.match(/^🔔\s*(.+?)\s*:?\s*$/))){if(cur){grp={label:m[1].replace(/:$/,''),words:[]};cur.groups.push(grp)}continue}
+      if((m=line.match(/^(.+?)\s*\(([^)]+)\)\s*[-–—:]\s*(.+)$/))){
+        cur={word:m[1].trim(),pos:m[2].trim(),def:m[3].trim(),example:'',groups:[]};grp=null;L.vocab.push(cur);continue}
+      if(cur&&grp)grp.words.push(line.replace(/^[-•·]\s*/,''));
+    }else if(sec==='sent'){
+      let m;
+      if((m=line.match(/You said\s*:\s*(.*)/i)))wrong=m[1].trim();
+      else if((m=line.match(/Better say\s*:\s*(.*)/i))){L.sentences.push({wrong:wrong||'',better:m[1].trim()});wrong=null}
+    }
+  }
+  return L;
+}
+
+const CONTR_SP={"won't":['will','not'],"can't":['can','not'],"cannot":['can','not'],"let's":['let','us'],"i'm":['i','am'],"ain't":['is','not']};
+function expand(w){
+  if(CONTR_SP[w])return CONTR_SP[w];
+  let m;
+  if((m=w.match(/^(.+)n't$/)))return [m[1],'not'];
+  if((m=w.match(/^(.+)'re$/)))return [m[1],'are'];
+  if((m=w.match(/^(.+)'ve$/)))return [m[1],'have'];
+  if((m=w.match(/^(.+)'ll$/)))return [m[1],'will'];
+  if((m=w.match(/^(.+)'d$/)))return [m[1],'would'];
+  if((m=w.match(/^(it|he|she|that|there|what|here|who|where)'s$/)))return [m[1],'is'];
+  return [w];
+}
+function toks(s){
+  const raws=String(s||'').replace(/[’‘]/g,"'").split(/\s+/).filter(Boolean);const out=[];
+  raws.forEach((r,i)=>{const w=r.toLowerCase().replace(/^[^a-z0-9']+|[^a-z0-9']+$/g,'');if(!w)return;expand(w).forEach(n=>out.push({n,o:i}))});
+  return{raws,toks:out};
+}
+function lcs(a,b){
+  const n=a.length,m=b.length,D=Array.from({length:n+1},()=>new Array(m+1).fill(0));
+  for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)D[i][j]=a[i].n===b[j].n?D[i+1][j+1]+1:Math.max(D[i+1][j],D[i][j+1]);
+  const mA=new Array(n).fill(false),mB=new Array(m).fill(false);let i=0,j=0;
+  while(i<n&&j<m){if(a[i].n===b[j].n){mA[i]=mB[j]=true;i++;j++}else if(D[i+1][j]>=D[i][j+1])i++;else j++}
+  return{L:D[0][0],mA,mB};
+}
+function sim(user,target){
+  const A=toks(target),B=toks(user),{L,mA,mB}=lcs(A.toks,B.toks);
+  const mark=(T,mat)=>{const has=T.raws.map(()=>false),ok=T.raws.map(()=>true);T.toks.forEach((t,i)=>{has[t.o]=true;if(!mat[i])ok[t.o]=false});return{has,ok}};
+  const a=mark(A,mA),b=mark(B,mB);
+  const tot=A.toks.length+B.toks.length;
+  return{
+    score:tot?2*L/tot:0,
+    tHtml:A.raws.map((r,i)=>`<span class="${a.has[i]&&!a.ok[i]?'miss':'ok'}">${esc(r)}</span>`).join(' '),
+    uHtml:B.raws.map((r,i)=>`<span class="${b.has[i]&&!b.ok[i]?'extra':'ok'}">${esc(r)}</span>`).join(' ')
+  };
+}
+const verdict=s=>s>=.9?'🎉 완벽해요':s>=.7?'👍 거의 맞아요':'🔁 다시 해볼까요';
+// </PURE>
+
+/* ---------- storage ---------- */
+function load(){try{const d=JSON.parse(localStorage.getItem('pe_v1'));if(d&&d.lessons){d.settings=Object.assign({key:'',model:'claude-haiku-5-5',rate:.9},d.settings);d.progress=d.progress||{};return d}}catch(e){}
+  return{lessons:{},progress:{},settings:{key:'',model:'claude-haiku-5-5',rate:.9}}}
+let DB=load();
+function save(){try{localStorage.setItem('pe_v1',JSON.stringify(DB))}catch(e){toast('저장 실패: 브라우저 저장공간을 확인하세요')}}
+const $=s=>document.querySelector(s);
+let toastT;function toast(t){document.querySelectorAll('.toast').forEach(e=>e.remove());const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.appendChild(d);clearTimeout(toastT);toastT=setTimeout(()=>d.remove(),2600)}
+
+/* ---------- state ---------- */
+const now0=new Date();
+let S={view:'cal',y:now0.getFullYear(),m:now0.getMonth(),sheet:null,addDate:null,addText:''};
+let P=null;
+
+/* ---------- cards ---------- */
+function cardsFor(date,types){
+  const L=DB.lessons[date];if(!L)return[];const ai=L.ai||{},out=[];
+  if(types.includes('pron'))L.pron.forEach((p,i)=>out.push({id:`${date}|p|${i}`,type:'pron',word:p.word,ipa:p.ipa,sentence:(ai.pron||{})[p.word]||''}));
+  if(types.includes('vocab'))L.vocab.forEach((v,i)=>out.push({id:`${date}|v|${i}`,type:'vocab',v,examples:[v.example,...((ai.vocab||{})[v.word]||[])].filter(Boolean)}));
+  if(types.includes('sent'))L.sentences.forEach((s,i)=>out.push({id:`${date}|s|${i}`,type:'sent',wrong:s.wrong,better:s.better,ko:(ai.ko||[])[i]||''}));
+  return out;
+}
+const allDates=()=>Object.keys(DB.lessons).sort();
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+
+/* ---------- speech ---------- */
+let REC=null;
+function speak(t){
+  if(!('speechSynthesis' in window)){toast('이 브라우저는 음성 재생을 지원하지 않아요');return}
+  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='en-US';
+  const v=speechSynthesis.getVoices().find(v=>/en[-_]US/i.test(v.lang));if(v)u.voice=v;u.rate=DB.settings.rate;speechSynthesis.speak(u);
+}
+function startRec(o){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){o.onError('unsupported');return}
+  if(REC){try{REC.stop()}catch(e){}return}
+  const r=new SR();REC=r;r.lang='en-US';r.interimResults=true;r.maxAlternatives=5;
+  r.onresult=e=>{let interim='',fin=null;
+    for(let i=e.resultIndex;i<e.results.length;i++){const res=e.results[i];if(res.isFinal)fin=res;else interim+=res[0].transcript}
+    if(interim&&o.onInterim)o.onInterim(interim);
+    if(fin){const alts=Array.from(fin).map(a=>a.transcript.trim());let best=alts[0];
+      if(o.target)best=alts.map(a=>[a,sim(a,o.target).score]).sort((x,y)=>y[1]-x[1])[0][0];o.onDone(best)}};
+  r.onerror=e=>o.onError(e.error);r.onend=()=>{REC=null;o.onEnd&&o.onEnd()};
+  try{r.start()}catch(e){REC=null;o.onError('start')}
+}
+function recErr(e){REC=null;
+  toast(e==='unsupported'?'이 브라우저는 음성인식을 지원하지 않아요 (Android Chrome / iOS Safari 권장)':
+    e==='not-allowed'||e==='service-not-allowed'?'마이크 권한을 허용해 주세요':e==='no-speech'?'음성이 들리지 않았어요. 다시 해볼까요?':'음성인식 오류: '+e)}
+
+/* ---------- AI (optional, user's own API key) ---------- */
+async function claude(prompt,max){
+  const k=DB.settings.key;if(!k)throw new Error('설정에서 API 키를 먼저 입력하세요');
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:DB.settings.model,max_tokens:max,messages:[{role:'user',content:prompt}]})});
+  if(!r.ok)throw new Error('API 오류 '+r.status+': '+(await r.text()).slice(0,200));
+  const j=await r.json();return j.content.map(c=>c.text||'').join('');
+}
+async function enrich(date){
+  const L=DB.lessons[date];
+  const payload={sentences:L.sentences.map(s=>s.better),pron:L.pron.map(p=>p.word),vocab:L.vocab.map(v=>({word:v.word,pos:v.pos,def:v.def}))};
+  const txt=await claude(`You are helping a Korean adult learner (OPIc prep) review a phone-English lesson. Reply with ONLY valid JSON, no markdown fences, in this exact shape:
+{"ko":["..."],"pron":{"<word>":"<sentence>"},"vocab":{"<word>":["<ex1>","<ex2>"]}}
+Rules:
+- "ko": natural spoken Korean translation of each sentence in input.sentences, same order and same count. Express the meaning only; do not hint at English word order.
+- "pron": for each word/phrase in input.pron, ONE natural English sentence (6-12 words) that contains it, good for reading aloud.
+- "vocab": for each input.vocab word, TWO different natural example sentences (8-14 words) using the word in the given part of speech.
+Input: ${JSON.stringify(payload)}`,3000);
+  const m=txt.match(/\{[\s\S]*\}/);if(!m)throw new Error('AI 응답을 해석하지 못했어요');
+  const ai=JSON.parse(m[0]);if(!Array.isArray(ai.ko))ai.ko=[];L.ai=ai;save();
+}
+async function aiFeedback(ko,better,user){
+  return claude(`한국인 영어 학습자가 전화영어 복습 중입니다.
+한국어 원문: ${ko||'(없음)'}
+모범 문장(Better say): ${better}
+학습자의 답: ${user}
+학습자의 답을 모범 문장 기준으로 한국어 2~3문장으로 짧게 피드백하세요. 핵심 차이/문법 포인트를 짚고, 학습자 표현도 자연스러우면 그렇다고 알려주세요. 마크다운 없이 평문으로.`,400);
+}
+
+/* ---------- render ---------- */
+function render(){
+  const app=$('#app');
+  document.querySelectorAll('.nav').forEach(e=>e.remove());
+  if(P){app.innerHTML=practiceHtml();return}
+  let h='';
+  if(S.view==='cal')h=calHtml();else if(S.view==='add')h=addHtml();else h=setHtml();
+  app.innerHTML=h+(S.sheet?sheetHtml():'');
+  const nav=document.createElement('div');nav.className='nav';
+  nav.innerHTML=[['cal','📅','캘린더'],['add','➕','수업 추가'],['set','⚙️','설정']].map(([v,i,t])=>`<button class="${S.view===v?'on':''}" data-act="tab" data-v="${v}">${i}<br>${t}</button>`).join('');
+  document.body.appendChild(nav);
+  if(S.view==='add')updatePreview();
+}
+function poolCount(){return allDates().reduce((n,d)=>n+cardsFor(d,['pron','vocab','sent']).length,0)}
+function calHtml(){
+  const first=new Date(S.y,S.m,1),days=new Date(S.y,S.m+1,0).getDate(),t=iso(now0.getFullYear(),now0.getMonth(),now0.getDate());
+  let g=['일','월','화','수','목','금','토'].map(w=>`<div class="wd">${w}</div>`).join('');
+  for(let i=0;i<first.getDay();i++)g+='<div></div>';
+  for(let d=1;d<=days;d++){const k=iso(S.y,S.m,d),L=DB.lessons[k];
+    g+=`<button class="d ${L?'has':''} ${k===t?'today':''}" data-act="day" data-d="${k}">${d}${L?`<small>${cardsFor(k,['pron','vocab','sent']).length}문제</small>`:''}</button>`}
+  const n=poolCount();
+  return`<h1>☀ 전화영어 복습</h1>
+  <button class="pri big" data-act="rand" ${n?'':'disabled'}>🎲 전체 랜덤 복습 <span style="font-weight:400">(${n}문제)</span></button>
+  <div class="card" style="margin-top:12px">
+    <div class="calh"><button data-act="mon" data-n="-1">‹</button><b>${S.y}년 ${S.m+1}월</b><button data-act="mon" data-n="1">›</button></div>
+    <div class="grid">${g}</div>
+  </div>
+  ${n?'':'<div class="card sub">아직 수업이 없어요. 아래 <b>➕ 수업 추가</b>에서 카톡 내용을 붙여넣어 보세요.</div>'}`;
+}
+function sheetHtml(){
+  const sh=S.sheet;
+  if(sh.type==='day'){const L=DB.lessons[sh.date],c=t=>cardsFor(sh.date,[t]).length;
+    const hasAI=!!L.ai;
+    return`<div class="sheetbg" data-act="closeSheet"><div class="sheet" data-stop="1">
+    <h2>${esc(sh.date)} 수업</h2>
+    <div class="sub">${esc([L.course,L.book,L.title].filter(Boolean).join(' · '))}</div>
+    <div class="row" style="margin:12px 0"><span class="chip">발음 ${c('pron')}</span><span class="chip">어휘 ${c('vocab')}</span><span class="chip">작문 ${c('sent')}</span></div>
+    <button class="pri big" data-act="study" data-t="all">▶ 전체 복습</button>
+    <div class="row" style="margin-top:8px"><button class="grow" data-act="study" data-t="pron">🔊 발음</button><button class="grow" data-act="study" data-t="vocab">💡 어휘</button><button class="grow" data-act="study" data-t="sent">🛠 작문</button></div>
+    <div class="row" style="margin-top:8px">
+      <button class="grow" data-act="enrich">${hasAI?'🔄 AI 예문·번역 다시 생성':'✨ AI 예문·번역 생성'}</button>
+      <button class="grow" data-act="del" style="color:var(--miss)">🗑 삭제</button></div>
+    ${hasAI?'':'<div class="sub" style="margin-top:6px">AI 생성 전에는 한국어 문장·발음 예문이 비어 있어요 (설정에서 API 키 입력 필요).</div>'}
+    </div></div>`}
+  return`<div class="sheetbg" data-act="closeSheet"><div class="sheet" data-stop="1">
+    <h2>🎲 전체 랜덤 복습</h2>
+    <label class="chk"><input type="checkbox" id="rp" checked> 🔊 발음</label>
+    <label class="chk"><input type="checkbox" id="rv" checked> 💡 어휘</label>
+    <label class="chk"><input type="checkbox" id="rs" checked> 🛠 작문</label>
+    <div class="lbl">문제 수</div><select id="rn"><option>10</option><option selected>20</option><option>30</option><option>50</option></select>
+    <label class="chk" style="margin-top:6px"><input type="checkbox" id="rw"> 점수 낮은/안 푼 문제 우선</label>
+    <button class="pri big" style="margin-top:12px" data-act="randgo">시작</button></div></div>`;
+}
+function addHtml(){
+  return`<h1>➕ 수업 추가</h1><div class="card">
+  <div class="lbl">카톡 피드백 전체를 붙여넣으세요</div>
+  <textarea id="paste" placeholder="☀ Jin&#10;📅 November 16th, Monday&#10;...">${esc(S.addText)}</textarea>
+  <div class="lbl">수업 날짜 (자동 인식, 필요하면 수정)</div><input type="date" id="pdate" value="${esc(S.addDate||'')}">
+  <div id="prev" class="sub" style="margin:10px 0"></div>
+  <button class="pri big" data-act="saveLesson">저장</button></div>`;
+}
+function updatePreview(){
+  const t=$('#paste');if(!t)return;S.addText=t.value;
+  if(!t.value.trim()){$('#prev').textContent='';return}
+  const L=parseLesson(t.value);if(!S.addDate||!$('#pdate').dataset.touched){S.addDate=L.date;$('#pdate').value=L.date}
+  $('#prev').innerHTML=`인식 결과 — 발음 <b>${L.pron.length}</b> · 어휘 <b>${L.vocab.length}</b> · 작문 <b>${L.sentences.length}</b>${L.pron.length+L.vocab.length+L.sentences.length===0?' <span style="color:var(--miss)">(인식된 항목이 없어요. 형식을 확인해 주세요)</span>':''}`;
+}
+function setHtml(){
+  const s=DB.settings;
+  return`<h1>⚙️ 설정</h1>
+  <div class="card"><h2>AI 예문·번역 (선택)</h2>
+  <div class="sub">한국어 문장, 발음 예문, 어휘 예문을 자동 생성하려면 Anthropic API 키가 필요해요. 키는 이 기기의 브라우저에만 저장되고 Anthropic 서버 외에는 전송되지 않아요.</div>
+  <div class="lbl">API 키</div><input type="password" id="skey" value="${esc(s.key)}" placeholder="sk-ant-..." autocomplete="off">
+  <div class="lbl">모델</div><input type="text" id="smodel" value="${esc(s.model)}">
+  </div>
+  <div class="card"><h2>음성</h2><div class="lbl">듣기 속도 <span id="rv2">${s.rate}</span>x</div>
+  <input type="range" id="srate" min="0.6" max="1.2" step="0.05" value="${s.rate}" style="width:100%">
+  <div class="row" style="margin-top:8px"><button data-act="testvoice">🔊 테스트</button></div></div>
+  <div class="card"><h2>백업 / 복원</h2>
+  <div class="sub">데이터는 이 브라우저에만 저장돼요. 기기를 바꾸거나 브라우저 데이터를 지우기 전에 백업하세요.</div>
+  <div class="row" style="margin:8px 0"><button data-act="exp">백업 만들기</button><button data-act="dl">파일로 저장</button></div>
+  <textarea id="bk" style="min-height:90px" placeholder="백업 JSON (복원할 때 여기에 붙여넣기)"></textarea>
+  <div class="row" style="margin-top:8px"><button data-act="copybk">복사</button><button data-act="imp">복원(합치기)</button></div></div>`;
+}
+
+/* ---------- practice ---------- */
+const typeName={pron:'🔊 발음',vocab:'💡 어휘',sent:'🛠 작문'};
+function blk(text,label){
+  P.targets.push(text);const k=P.targets.length-1;
+  return`<div class="blk"><div class="lbl">${esc(label)}</div><div class="tgt">${esc(text)}</div>
+  <div class="row"><button data-act="say" data-k="${k}">🔊 듣기</button><button class="mic" data-act="mic" data-k="${k}" id="m${k}">🎤 말하기</button></div>
+  <div class="heard" id="h${k}"></div><div class="res" id="r${k}"></div></div>`;
+}
+function practiceHtml(){
+  if(P.i>=P.cards.length)return summaryHtml();
+  P.targets=[];P.scores={};
+  const c=P.cards[P.i];let b='';
+  if(c.type==='pron'){
+    b=`<span class="chip">발음</span><div class="word">${esc(c.word)}</div><div class="ipa">[${esc(c.ipa)}]</div>`+blk(c.word,'단어 따라 읽기')+
+      (c.sentence?blk(c.sentence,'예문 읽기'):'<div class="sub" style="margin-top:8px">예문은 “AI 예문·번역 생성” 후에 나타나요.</div>');
+  }else if(c.type==='vocab'){
+    const v=c.v;
+    b=`<span class="chip">어휘</span><div class="word">${esc(v.word)} <span class="ipa">(${esc(v.pos)})</span></div><div>${esc(v.def)}</div>`+
+      v.groups.map(g=>`<div class="sub" style="margin-top:4px">${esc(g.label)}: ${esc(g.words.join(', '))}</div>`).join('')+
+      c.examples.map((e,i)=>blk(e,'예문 '+(i+1)+' 읽기')).join('');
+  }else{
+    b=`<span class="chip">작문</span><div class="lbl">다음 뜻을 영어로 말해보세요</div>
+    ${c.ko?`<div class="ko">${esc(c.ko)}</div>`:`<div class="fb">한국어 문장이 아직 없어요. 수업 시트의 “AI 예문·번역 생성”을 먼저 눌러 주세요.<br>지금은 예전 실수 문장을 올바르게 고쳐서 말해보세요:<br><b>${esc(c.wrong)}</b></div>`}
+    ${c.ko&&c.wrong?`<details class="sub"><summary>수업 때 했던 말 보기</summary>${esc(c.wrong)}</details>`:''}
+    <div class="row" style="margin:10px 0"><button class="mic" data-act="smic" id="sm">🎤 말하기</button></div>
+    <textarea id="ans" style="min-height:70px" placeholder="말하면 여기에 인식돼요. 직접 입력/수정도 가능해요."></textarea>
+    <button class="pri big" style="margin-top:8px" data-act="scheck">확인</button><div id="sres"></div>`;
+  }
+  return`<div class="top"><button class="ghost" data-act="quit">✕</button><div class="bar"><i style="width:${P.i/P.cards.length*100}%"></i></div><span class="sub">${P.i+1}/${P.cards.length}</span></div>
+  <div class="card">${b}</div>
+  <div class="row"><button class="grow ghost" data-act="skip">건너뛰기</button><button class="grow pri" data-act="next">다음 ›</button></div>`;
+}
+function cardLabel(c){return c.type==='pron'?c.word:c.type==='vocab'?c.v.word:c.better}
+function summaryHtml(){
+  const sc=P.results.filter(r=>r.score!=null),avg=sc.length?sc.reduce((a,r)=>a+r.score,0)/sc.length:0;
+  const weak=P.results.filter(r=>r.score!=null&&r.score<.8);
+  return`<h1>🎉 복습 끝!</h1><div class="card"><div style="font-size:34px;font-weight:800">${Math.round(avg*100)}점</div><div class="sub">${sc.length}문제 응답 · 평균</div>
+  ${P.results.map(r=>`<div class="li"><span>${typeName[r.c.type].slice(0,2)} ${esc(cardLabel(r.c))}</span><b class="${r.score==null?'sub':r.score>=.8?'ok':'miss'}">${r.score==null?'–':Math.round(r.score*100)}</b></div>`).join('')}</div>
+  ${weak.length?`<button class="pri big" data-act="retry">틀린 ${weak.length}개 다시 풀기</button>`:''}
+  <button class="big" style="margin-top:8px" data-act="quit">닫기</button>`;
+}
+function finishCard(skip){
+  const c=P.cards[P.i],v=Object.values(P.scores);let score=null;
+  if(!skip&&v.length){score=v.reduce((a,b)=>a+b,0)/v.length;const p=DB.progress[c.id]||{n:0,best:0};DB.progress[c.id]={n:p.n+1,last:score,best:Math.max(p.best||0,score)};save()}
+  P.results.push({c,score});P.i++;speechSynthesis&&speechSynthesis.cancel();render();window.scrollTo(0,0);
+}
+function showResult(k,heard){
+  const text=P.targets[k],r=sim(heard,text);P.scores[k]=r.score;
+  $('#r'+k).innerHTML=`<div class="sc ${r.score>=.7?'ok':'miss'}">${verdict(r.score)} · ${Math.round(r.score*100)}점</div><div class="lbl">정답</div><div>${r.tHtml}</div><div class="lbl">내 발음 인식</div><div>${r.uHtml}</div>`;
+}
+function setMic(btn,on){btn.classList.toggle('rec',on);btn.textContent=on?'⏹ 멈추기':'🎤 말하기'}
+
+/* ---------- actions ---------- */
+async function doEnrich(date){
+  toast('AI가 예문·번역을 만드는 중…');
+  try{await enrich(date);toast('생성 완료!')}catch(e){toast(e.message)}
+  render();
+}
+const acts={
+  tab(el){S.view=el.dataset.v;S.sheet=null;render();window.scrollTo(0,0)},
+  mon(el){S.m+=+el.dataset.n;if(S.m<0){S.m=11;S.y--}if(S.m>11){S.m=0;S.y++}render()},
+  day(el){const d=el.dataset.d;if(DB.lessons[d]){S.sheet={type:'day',date:d};render()}else{S.view='add';S.addDate=d;S.addText='';toast(d+' 수업이 없어요. 새로 추가할 수 있어요');render()}},
+  closeSheet(el,e){if(e.target===el){S.sheet=null;render()}},
+  rand(){S.sheet={type:'rand'};render()},
+  randgo(){
+    const t=[['rp','pron'],['rv','vocab'],['rs','sent']].filter(([id])=>$('#'+id).checked).map(x=>x[1]);
+    if(!t.length)return toast('유형을 하나 이상 선택하세요');
+    let pool=allDates().flatMap(d=>cardsFor(d,t));
+    pool=$('#rw').checked?pool.map(c=>[c,((DB.progress[c.id]||{}).last??.4)*(.5+Math.random())]).sort((a,b)=>a[1]-b[1]).map(x=>x[0]):shuffle(pool);
+    startPractice(pool.slice(0,+$('#rn').value),'랜덤');
+  },
+  study(el){const t=el.dataset.t;startPractice(cardsFor(S.sheet.date,t==='all'?['pron','vocab','sent']:[t]),S.sheet.date)},
+  enrich(){doEnrich(S.sheet.date)},
+  del(){if(confirm('이 날짜의 수업 기록을 삭제할까요?')){delete DB.lessons[S.sheet.date];save();S.sheet=null;render()}},
+  async saveLesson(){
+    const text=$('#paste').value;if(!text.trim())return toast('붙여넣은 내용이 없어요');
+    const L=parseLesson(text);L.date=$('#pdate').value||L.date;
+    if(!L.pron.length&&!L.vocab.length&&!L.sentences.length)return toast('인식된 항목이 없어요');
+    if(DB.lessons[L.date]&&!confirm(L.date+' 수업이 이미 있어요. 덮어쓸까요?'))return;
+    DB.lessons[L.date]=L;save();S.addText='';S.addDate=null;S.view='cal';
+    const d=new Date(L.date+'T00:00');S.y=d.getFullYear();S.m=d.getMonth();render();
+    if(DB.settings.key)doEnrich(L.date);else toast('저장했어요! (AI 예문·번역은 설정에서 API 키 입력 후 생성)');
+  },
+  say(el){speak(P.targets[+el.dataset.k])},
+  mic(el){
+    const k=+el.dataset.k,btn=el;
+    if(REC){try{REC.stop()}catch(e){}return}
+    setMic(btn,true);
+    startRec({target:P.targets[k],onInterim:t=>{$('#h'+k).textContent='… '+t},onDone:t=>{$('#h'+k).textContent='“'+t+'”';showResult(k,t)},onError:e=>{setMic(btn,false);recErr(e)},onEnd:()=>setMic(btn,false)});
+  },
+  smic(el){
+    if(REC){try{REC.stop()}catch(e){}return}
+    const ans=$('#ans'),c=P.cards[P.i];setMic(el,true);
+    startRec({target:c.better,onInterim:t=>{ans.value=t},onDone:t=>{ans.value=t},onError:e=>{setMic(el,false);recErr(e)},onEnd:()=>setMic(el,false)});
+  },
+  async scheck(){
+    const c=P.cards[P.i],u=$('#ans').value.trim();if(!u)return toast('먼저 말하거나 입력해 주세요');
+    const r=sim(u,c.better);P.scores[0]=r.score;
+    $('#sres').innerHTML=`<div class="res"><div class="sc ${r.score>=.7?'ok':'miss'}" style="font-size:18px">${verdict(r.score)} · ${Math.round(r.score*100)}점</div>
+    <div class="lbl">Better say</div><div style="font-size:18px">${r.tHtml}</div>
+    <div class="lbl">내 문장 <span class="sub">(<span class="extra">취소선</span>=불필요/다른 단어, <span class="miss">빨강</span>=빠진 단어)</span></div><div>${r.uHtml}</div>
+    <div class="row" style="margin-top:8px"><button data-act="sayb">🔊 Better say 듣기</button></div><div id="aifb"></div></div>`;
+    if(DB.settings.key){$('#aifb').innerHTML='<div class="fb sub">AI 피드백 생성 중…</div>';
+      try{const f=await aiFeedback(c.ko,c.better,u);if($('#aifb'))$('#aifb').innerHTML=`<div class="fb">${esc(f.trim())}</div>`}catch(e){if($('#aifb'))$('#aifb').innerHTML=`<div class="fb sub">AI 피드백 실패: ${esc(e.message)}</div>`}}
+  },
+  sayb(){speak(P.cards[P.i].better)},
+  next(){finishCard(false)},skip(){finishCard(true)},
+  quit(){P=null;if(REC){try{REC.stop()}catch(e){}}render()},
+  retry(){const w=P.results.filter(r=>r.score!=null&&r.score<.8).map(r=>r.c);startPractice(w,P.title)},
+  testvoice(){speak('Hello! This is how I will read your sentences.')},
+  exp(){$('#bk').value=bk();toast('아래 칸에 백업이 만들어졌어요')},
+  async copybk(){const t=$('#bk').value;if(!t)return toast('먼저 “백업 만들기”를 누르세요');try{await navigator.clipboard.writeText(t);toast('복사했어요')}catch(e){$('#bk').select();toast('길게 눌러 복사하세요')}},
+  dl(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bk()],{type:'application/json'}));a.download='phone-english-backup-'+iso(now0.getFullYear(),now0.getMonth(),now0.getDate())+'.json';document.body.appendChild(a);a.click();a.remove()},
+  imp(){try{const d=JSON.parse($('#bk').value);/*key not restored*/if(!d.lessons)throw 0;Object.assign(DB.lessons,d.lessons);Object.assign(DB.progress,d.progress||{});save();toast('복원했어요 ('+Object.keys(d.lessons).length+'일)');render()}catch(e){toast('백업 형식이 올바르지 않아요')}}
+};
+const bk=()=>JSON.stringify({...DB,settings:{...DB.settings,key:''}});
+function startPractice(cards,title){
+  if(!cards.length)return toast('복습할 문제가 없어요');
+  P={cards,i:0,title,results:[],scores:{},targets:[]};S.sheet=null;render();window.scrollTo(0,0);
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');if(!el)return;
+  if(el.dataset.act==='closeSheet'&&e.target!==el)return;
+  const f=acts[el.dataset.act];if(f)f(el,e);
+});
+document.addEventListener('input',e=>{
+  const id=e.target.id;
+  if(id==='paste')updatePreview();
+  else if(id==='pdate'){e.target.dataset.touched='1';S.addDate=e.target.value}
+  else if(id==='skey'){DB.settings.key=e.target.value.trim();save()}
+  else if(id==='smodel'){DB.settings.model=e.target.value.trim()||'claude-haiku-5-5';save()}
+  else if(id==='srate'){DB.settings.rate=+e.target.value;$('#rv2').textContent=e.target.value;save()}
+});
+if('speechSynthesis' in window)speechSynthesis.getVoices();
+render();
+</script>
+</body>
+</html>
